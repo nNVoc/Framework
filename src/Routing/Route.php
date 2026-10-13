@@ -54,17 +54,26 @@ class Route
     public function run(Request $request, array $params, array $globalMiddlewares = []): Response
     {
         $handler = function (Request $request) use ($params): Response {
-            $callback = $this->handler;
+            $parts = explode('::', $this->handler, 2);
 
-            if (is_string($callback) && class_exists($callback)) {
-                $controller = $this->container->get($callback);
-                $callback = [$controller, 'index'];
-            } elseif (is_array($callback) && is_string($callback[0])) {
-                $controller = $this->container->get($callback[0]);
-                $callback = [$controller, $callback[1]];
+            $class = $parts[0];
+            $method = $parts[1] ?? 'index';
+
+            if (!class_exists($class)) {
+                throw new \RuntimeException(
+                    "Controller {$class} does not exist."
+                );
             }
 
-            return $callback($request, $params);
+            $controller = $this->container->get($class);
+
+            if (!method_exists($controller, $method)) {
+                throw new \RuntimeException(
+                    "Method {$method} does not exist in {$class}."
+                );
+            }
+
+            return $controller->{$method}($request, $params);
         };
 
         $middlewares = array_merge(
