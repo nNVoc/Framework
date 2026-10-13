@@ -51,29 +51,65 @@ class Route
         return $this;
     }
 
-    public function run(Request $request, array $params, array $globalMiddlewares = []): Response
-    {
+    public function run(
+        Request $request,
+        array $params,
+        array $globalMiddlewares = []
+    ): Response {
         $handler = function (Request $request) use ($params): Response {
-            $parts = explode('::', $this->handler, 2);
+            $callback = $this->handler;
 
-            $class = $parts[0];
-            $method = $parts[1] ?? 'index';
-
-            if (!class_exists($class)) {
-                throw new \RuntimeException(
-                    "Controller {$class} does not exist."
-                );
+            if ($callback instanceof \Closure) {
+                return $callback($request, $params);
             }
 
-            $controller = $this->container->get($class);
+            if (is_array($callback)) {
+                [$class, $method] = $callback;
 
-            if (!method_exists($controller, $method)) {
-                throw new \RuntimeException(
-                    "Method {$method} does not exist in {$class}."
-                );
+                if (is_string($class)) {
+                    $class = $this->container->get($class);
+                }
+
+                return $class->{$method}($request, $params);
             }
 
-            return $controller->{$method}($request, $params);
+            if (is_string($callback) && str_contains($callback, '::')) {
+                [$class, $method] = explode('::', $callback, 2);
+
+                if (!class_exists($class)) {
+                    throw new \RuntimeException(
+                        "Controller {$class} does not exist."
+                    );
+                }
+
+                $controller = $this->container->get($class);
+
+                if (!is_callable([$controller, $method])) {
+                    throw new \RuntimeException(
+                        "Handler {$class}::{$method} is not callable."
+                    );
+                }
+
+                return $controller->{$method}($request, $params);
+            }
+
+            if (is_string($callback) && class_exists($callback)) {
+                $controller = $this->container->get($callback);
+
+                if (!is_callable([$controller, 'index'])) {
+                    throw new \RuntimeException(
+                        "Handler {$callback}::index is not callable."
+                    );
+                }
+
+                return $controller->index($request, $params);
+            }
+
+            if (is_string($callback) && function_exists($callback)) {
+                return $callback($request, $params);
+            }
+
+            throw new \RuntimeException('Invalid route handler.');
         };
 
         $middlewares = array_merge(

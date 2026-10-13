@@ -13,37 +13,37 @@ class Router
         private Container $container
     ) {}
 
-    public function get(string $path, string $handler): Route
+    public function get(string $path, mixed $handler): Route
     {
         return $this->add('GET', $path, $handler);
     }
 
-    public function post(string $path, string $handler): Route
+    public function post(string $path, mixed $handler): Route
     {
         return $this->add('POST', $path, $handler);
     }
 
-    public function put(string $path, string $handler): Route
+    public function put(string $path, mixed $handler): Route
     {
         return $this->add('PUT', $path, $handler);
     }
 
-    public function patch(string $path, string $handler): Route
+    public function patch(string $path, mixed $handler): Route
     {
         return $this->add('PATCH', $path, $handler);
     }
 
-    public function delete(string $path, string $handler): Route
+    public function delete(string $path, mixed $handler): Route
     {
         return $this->add('DELETE', $path, $handler);
     }
 
-    public function head(string $path, string $handler): Route
+    public function head(string $path, mixed $handler): Route
     {
         return $this->add('HEAD', $path, $handler);
     }
 
-    public function options(string $path, string $handler): Route
+    public function options(string $path, mixed $handler): Route
     {
         return $this->add('OPTIONS', $path, $handler);
     }
@@ -51,7 +51,7 @@ class Router
     private function add(
         string $method,
         string $path,
-        string $handler
+        mixed $handler
     ): Route
     {
         $route = new Route($method, $path, $handler, $this->container);
