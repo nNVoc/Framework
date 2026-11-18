@@ -7,7 +7,8 @@ use RuntimeException;
 final class PhpSession implements SessionInterface
 {
     public function __construct(
-        private string $name = 'PHPSESSID'
+        private string $name = 'PHPSESSID',
+        private int $lifetime = 0
     ) {}
 
     public function start(): void
@@ -25,7 +26,7 @@ final class PhpSession implements SessionInterface
         session_name($this->name);
 
         session_set_cookie_params([
-            'lifetime' => 0,
+            'lifetime' => $this->lifetime,
             'path' => '/',
             'secure' => true,
             'httponly' => true,
