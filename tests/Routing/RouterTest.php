@@ -6,6 +6,8 @@ namespace Poletti\Framework\Tests\Routing;
 
 use PHPUnit\Framework\TestCase;
 use Poletti\Framework\Container\Container;
+use Poletti\Framework\Exceptions\MethodNotAllowedException;
+use Poletti\Framework\Exceptions\NotFoundException;
 use Poletti\Framework\Routing\Request;
 use Poletti\Framework\Routing\Response;
 use Poletti\Framework\Routing\Router;
@@ -50,12 +52,9 @@ final class RouterTest extends TestCase
         $router = new Router(new Container());
         $router->get('/known', $this->handler());
 
-        [$body, $status] = ResponseCapture::capture(
-            $router->dispatch($this->request('GET', '/unknown'))
-        );
+        $this->expectException(NotFoundException::class);
 
-        self::assertSame('404 Not Found', $body);
-        self::assertSame(404, $status);
+        $router->dispatch($this->request('GET', '/unknown'));
     }
 
     public function testDispatchReturns405WhenPathMatchesButMethodDoesNot(): void
@@ -63,12 +62,9 @@ final class RouterTest extends TestCase
         $router = new Router(new Container());
         $router->get('/users/{id}', $this->handler());
 
-        [$body, $status] = ResponseCapture::capture(
-            $router->dispatch($this->request('POST', '/users/42'))
-        );
+        $this->expectException(MethodNotAllowedException::class);
 
-        self::assertSame('405 Method Not Allowed', $body);
-        self::assertSame(405, $status);
+        $router->dispatch($this->request('POST', '/users/42'));
     }
 
     public function testDispatchCanChooseAnotherRouteWithTheSamePathAndCorrectMethod(): void

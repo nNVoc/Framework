@@ -3,6 +3,8 @@
 namespace Poletti\Framework\Routing;
 
 use Poletti\Framework\Container\Container;
+use Poletti\Framework\Exceptions\MethodNotAllowedException;
+use Poletti\Framework\Exceptions\NotFoundException;
 
 class Router 
 {
@@ -91,9 +93,9 @@ class Router
         }
 
         if ($methodNotAllowed) {
-            return new Response('405 Method Not Allowed', 405);
+            throw new MethodNotAllowedException();
         }
 
-        return new Response('404 Not Found', 404);
+        throw new NotFoundException();
     }
 }
