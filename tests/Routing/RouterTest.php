@@ -101,6 +101,33 @@ final class RouterTest extends TestCase
         self::assertSame($router, $router->middleware($middleware));
     }
 
+    public function testGlobalMiddlewareRunsBeforeRouteMiddleware(): void
+    {
+        $trace = (object) ['events' => []];
+
+        $global = new TraceMiddleware($trace, 'global');
+        $local = new TraceMiddleware($trace, 'route');
+
+        $router = new Router(new Container());
+
+        $router->middleware($global);
+
+        $router->get('/test', Support\fixture_handler(...))
+            ->middleware($local);
+
+        $router->dispatch($this->request('GET', '/test'));
+
+        self::assertSame(
+            [
+                'global:before',
+                'route:before',
+                'route:after',
+                'global:after',
+            ],
+            $trace->events
+        );
+    }
+
 
     private function handler(): string
     {

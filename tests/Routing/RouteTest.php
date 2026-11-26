@@ -89,22 +89,6 @@ final class RouteTest extends TestCase
         self::assertSame('show:42', $body);
     }
 
-    public function testGlobalMiddlewareRunsBeforeRouteMiddleware(): void
-    {
-        $trace = (object) ['events' => []];
-        $global = new TraceMiddleware($trace, 'global');
-        $local = new TraceMiddleware($trace, 'route');
-        $route = (new Route('GET', '/test', Support\fixture_handler(...), new Container()))
-            ->middleware($local);
-
-        $route->run($this->request('GET', '/test'), [], [$global]);
-
-        self::assertSame(
-            ['global:before', 'route:before', 'route:after', 'global:after'],
-            $trace->events
-        );
-    }
-
     public function testMiddlewareCanShortCircuitTheHandler(): void
     {
         $middleware = new class implements \Poletti\Framework\Routing\Middleware {

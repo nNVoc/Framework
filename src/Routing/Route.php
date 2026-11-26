@@ -53,8 +53,7 @@ class Route
 
     public function run(
         Request $request,
-        array $params,
-        array $globalMiddlewares = []
+        array $params
     ): Response {
         $handler = function (Request $request) use ($params): Response {
             $callback = $this->handler;
@@ -112,10 +111,7 @@ class Route
             throw new \RuntimeException('Invalid route handler.');
         };
 
-        $middlewares = array_merge(
-            $globalMiddlewares,
-            $this->middlewares
-        );
+        $middlewares = $this->middlewares;
 
         foreach (array_reverse($middlewares) as $middleware) {
             $next = $handler;

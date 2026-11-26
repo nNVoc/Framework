@@ -49,4 +49,22 @@ final class ResponseTest extends TestCase
 
         Response::json(['resource' => fopen('php://memory', 'r')]);
     }
+
+    public function testAppendHeaderPreservesExistingValuesRegardlessOfCase(): void
+    {
+        $response = new Response(headers: ['vary' => 'Accept-Encoding']);
+
+        self::assertSame($response, $response->appendHeader('Vary', 'Origin'));
+        self::assertSame(['vary' => 'Accept-Encoding, Origin'], $response->headers());
+        $response->header('VARY', 'Accept');
+        self::assertSame(['vary' => 'Accept'], $response->headers());
+    }
+
+    public function testAppendHeaderAddsAMissingHeader(): void
+    {
+        $response = new Response();
+        $response->appendHeader('Vary', 'Origin');
+
+        self::assertSame(['Vary' => 'Origin'], $response->headers());
+    }
 }

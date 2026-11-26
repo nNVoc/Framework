@@ -5,6 +5,16 @@ declare(strict_types=1);
 namespace Poletti\Framework\Tests\Session;
 
 use PHPUnit\Framework\TestCase;
+use Poletti\Framework\Container\Container;
+use Poletti\Framework\Exceptions\ExceptionHandler;
+use Poletti\Framework\Http\Middleware\CorsMiddleware;
+use Poletti\Framework\Http\Middleware\CsrfMiddleware;
+use Poletti\Framework\Http\Middleware\ExceptionMiddleware;
+use Poletti\Framework\Http\Middleware\SessionMiddleware;
+use Poletti\Framework\Routing\Request;
+use Poletti\Framework\Routing\Response;
+use Poletti\Framework\Routing\Router;
+use Poletti\Framework\Security\CsrfTokenManager;
 use Poletti\Framework\Session\PhpSession;
 use RuntimeException;
 
@@ -126,6 +136,71 @@ final class PhpSessionTest extends TestCase
         $this->expectExceptionMessage('Session has not been started.');
 
         $this->session->get('user_id');
+    }
+
+    public function testCsrfFlowThroughRouterWithRealSessionAndCors(): void
+    {
+        $server = $_SERVER;
+
+        try {
+            $csrf = new CsrfTokenManager($this->session);
+            $router = new Router(new Container());
+            $router->middleware(new CorsMiddleware(
+                allowedOrigins: ['https://app.example.com'],
+                allowCredentials: true,
+            ));
+            $router->middleware(new ExceptionMiddleware(
+                new ExceptionHandler()
+            ));
+            $router->middleware(new SessionMiddleware($this->session));
+            $router->middleware(new CsrfMiddleware($csrf));
+            $router->get('/csrf', fn () => Response::json(['token' => $csrf->getToken()]));
+            $writes = 0;
+            $router->post('/write', function () use (&$writes): Response {
+                $writes++;
+                return new Response('', 201, ['Vary' => 'Accept-Encoding']);
+            });
+
+            $_SERVER['REQUEST_METHOD'] = 'GET';
+            $_SERVER['REQUEST_URI'] = '/csrf';
+            unset($_SERVER['HTTP_X_CSRF_TOKEN']);
+            $request = new Request();
+            self::assertSame(200, $router->dispatch($request)->status());
+            $token = $csrf->getToken();
+
+            $_SERVER['REQUEST_METHOD'] = 'POST';
+            $_SERVER['REQUEST_URI'] = '/write';
+            $_SERVER['HTTP_ORIGIN'] = 'https://app.example.com';
+            self::assertSame(403, $router->dispatch($request)->status());
+            $_SERVER['HTTP_X_CSRF_TOKEN'] = str_repeat('b', 64);
+            self::assertSame(403, $router->dispatch($request)->status());
+            self::assertSame(0, $writes);
+
+            $_SERVER['HTTP_X_CSRF_TOKEN'] = $token;
+            $response = $router->dispatch($request);
+            self::assertSame(201, $response->status());
+            self::assertSame(1, $writes);
+            self::assertSame('Accept-Encoding, Origin', $response->headers()['Vary']);
+            self::assertSame('true', $response->headers()['Access-Control-Allow-Credentials']);
+
+            $csrf->generateToken();
+            self::assertSame(403, $router->dispatch($request)->status());
+            self::assertSame(1, $writes);
+
+            $_SERVER['REQUEST_METHOD'] = 'OPTIONS';
+            $_SERVER['HTTP_ACCESS_CONTROL_REQUEST_METHOD'] = 'POST';
+            $_SERVER['HTTP_ACCESS_CONTROL_REQUEST_HEADERS'] = 'content-type, x-csrf-token';
+            unset($_SERVER['HTTP_X_CSRF_TOKEN']);
+            self::assertSame(204, $router->dispatch($request)->status());
+
+            $_SERVER['REQUEST_METHOD'] = 'GET';
+            $_SERVER['REQUEST_URI'] = '/missing';
+            self::assertSame(404, $router->dispatch($request)->status());
+            $_SERVER['REQUEST_URI'] = '/write';
+            self::assertSame(405, $router->dispatch($request)->status());
+        } finally {
+            $_SERVER = $server;
+        }
     }
 
     private function closeActiveSession(): void

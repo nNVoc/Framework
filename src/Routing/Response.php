@@ -36,4 +36,42 @@ class Response
             ]
         );
     }
+
+    public function header(string $name, string $value): self
+    {
+        foreach ($this->headers as $key => $_) {
+            if (strcasecmp($key, $name) === 0) {
+                $this->headers[$key] = $value;
+
+                return $this;
+            }
+        }
+
+        $this->headers[$name] = $value;
+
+        return $this;
+    }
+
+    public function appendHeader(string $name, string $value): self
+    {
+        foreach ($this->headers as $key => $_) {
+            if (strcasecmp($key, $name) === 0) {
+                $this->headers[$key] .= ', ' . $value;
+
+                return $this;
+            }
+        }
+
+        return $this->header($name, $value);
+    }
+
+    public function status(): int
+    {
+        return $this->status;
+    }
+
+    public function headers(): array
+    {
+        return $this->headers;
+    }
 }

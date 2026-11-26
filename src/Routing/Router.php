@@ -72,30 +72,42 @@ class Router
 
     public function dispatch(Request $request): Response
     {
-        $methodNotAllowed = false;
-        
-        foreach ($this->routes as $route) {
-            $result = $route->match(
-                $request->method(),
-                $request->path()
-            );
+        $handler = function (Request $request): Response {
+            $methodNotAllowed = false;
 
-            if ($result === null) {
-                continue;
+            foreach ($this->routes as $route) {
+                $result = $route->match(
+                    $request->method(),
+                    $request->path()
+                );
+
+                if ($result === null) {
+                    continue;
+                }
+
+                if ($result === false) {
+                    $methodNotAllowed = true;
+                    continue;
+                }
+
+                return $route->run($request, $result);
             }
 
-            if ($result === false) {
-                $methodNotAllowed = true;
-                continue;
+            if ($methodNotAllowed) {
+                throw new MethodNotAllowedException();
             }
-                
-            return $route->run($request, $result, $this->middlewares);
+
+            throw new NotFoundException();
+        };
+
+        foreach (array_reverse($this->middlewares) as $middleware) {
+            $next = $handler;
+
+            $handler = function (Request $request) use ($middleware, $next): Response {
+                return $middleware->handle($request, $next);
+            };
         }
 
-        if ($methodNotAllowed) {
-            throw new MethodNotAllowedException();
-        }
-
-        throw new NotFoundException();
+        return $handler($request);
     }
 }

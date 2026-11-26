@@ -2,6 +2,7 @@
 
 namespace Poletti\Framework\Exceptions;
 
+use Poletti\Framework\Locking\Exceptions\LockTimeoutException;
 use Poletti\Framework\Routing\Request;
 use Poletti\Framework\Routing\Response;
 use Throwable;
@@ -19,6 +20,8 @@ class ExceptionHandler
                 'Unhandled ' . $exception::class
                 . ' in ' . $exception->getFile()
                 . ':' . $exception->getLine()
+                . PHP_EOL
+                . $exception->getTraceAsString()
             );
         }
 
@@ -27,18 +30,24 @@ class ExceptionHandler
 
     protected function map(Throwable $exception): ErrorInfo
     {
-        if ($exception instanceof HttpException) {
-            $status = $exception->getStatusCode();
-
-            return new ErrorInfo(
-                status: $status,
-                message: $status >= 500
+        return match (true) {
+            $exception instanceof HttpException => new ErrorInfo(
+                status: $exception->getStatusCode(),
+                message: $exception->getStatusCode() >= 500
                     ? 'Internal Server Error'
                     : $exception->getMessage()
-            );
-        }
+            ),
 
-        return new ErrorInfo(500, 'Internal Server Error');
+            $exception instanceof LockTimeoutException => new ErrorInfo(
+                status: 503,
+                message: 'Service Unavailable'
+            ),
+
+            default => new ErrorInfo(
+                status: 500,
+                message: 'Internal Server Error'
+            )
+        };
     }
 
     protected function render(
